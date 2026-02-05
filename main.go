@@ -29,7 +29,7 @@ func main() {
 	fileServer := http.FileServer(http.Dir("./uploads"))
 	http.Handle("/media/", http.StripPrefix("/media/", fileServer))
 
-	// 4. Start the Server
+	// Start the Server
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = os.Getenv("PORT") // Default port if not specified

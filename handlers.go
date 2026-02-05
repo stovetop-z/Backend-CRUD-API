@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,11 @@ import (
 )
 
 var photoUploadPath string = "./images/"
+
+type photoDelete struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
 
 func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -95,4 +101,24 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, "Successfully uploaded: %s", uniqueName)
 	return
+}
+
+func DeleteHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Let's get the frontend submission data, should just be the id number of the photo
+	var photoInfo photoDelete
+	if err := json.NewDecoder(r.Body).Decode(&photoInfo); err != nil {
+		http.Error(w, "Invalid photo", http.StatusBadRequest)
+		return
+	}
+
+	var query string
+	if id := photoInfo.ID; len(id) > 0 {
+		query = ""
+	}
+
 }
