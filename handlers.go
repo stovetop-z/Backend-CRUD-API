@@ -2,10 +2,10 @@ package main
 
 /*
 #cgo CXXFLAGS: -I./build/_deps/exiv2-src/include -I./build -std=c++17
-#cgo LDFLAGS: -L./build/lib -lexiv2 -lexpat -lz -lpthread
+#cgo LDFLAGS: -L./build/lib -Wl,-rpath,./build/lib -lexiv2 -lexpat -lz -lpthread -lstdc++
 #include <stdlib.h>
 
-char* get_exif_model(const char* path);
+char* getMetaData(const char* path);
 */
 import "C"
 

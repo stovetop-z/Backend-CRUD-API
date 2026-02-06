@@ -43,6 +43,9 @@ func main() {
 	// Access login
 	http.HandleFunc("/login", LoginHandler)
 
+	// Handle logout
+	http.HandleFunc("/logout", LogoutHandler)
+
 	// Handle upload
 	http.HandleFunc("/upload", UploadHandler)
 
