@@ -49,6 +49,9 @@ func main() {
 	// Handle deletion
 	http.HandleFunc("/delete", DeleteHandler)
 
+	// Get photos
+	http.HandleFunc("/photos", GetPhotosHandler)
+
 	// This line "blocks" and keeps the program running
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
