@@ -46,6 +46,9 @@ func main() {
 	// Handle upload
 	http.HandleFunc("/upload", UploadHandler)
 
+	// Handle deletion
+	http.HandleFunc("/delete", DeleteHandler)
+
 	// This line "blocks" and keeps the program running
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

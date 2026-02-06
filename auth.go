@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -52,6 +53,11 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Make folder in dir
+	if err := os.Mkdir(("./root/" + u.Username), 0755); err != nil {
+		log.Println("Error creating folder for new user: " + u.Username)
+	}
+
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("User created successfully!"))
 	return
@@ -92,6 +98,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    u.Username,
 		Path:     "/",
 		HttpOnly: true,
+		MaxAge:   3600,
 	}
 	http.SetCookie(w, cookie)
 

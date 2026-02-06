@@ -3,3 +3,10 @@
 main
 
 images/
+
+build/
+
+root/
+
+*.o
+metadata_tool
