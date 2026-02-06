@@ -1,10 +1,11 @@
 package main
 
 /*
+#cgo CXXFLAGS: -I./build/_deps/exiv2-src/include -I./build -std=c++17
+#cgo LDFLAGS: -L./build/lib -lexiv2 -lexpat -lz -lpthread
 #include <stdlib.h>
-#include <string.h>
-// Just the function signature so Go knows it exists
-char* getMetaData(const char* path);
+
+char* get_exif_model(const char* path);
 */
 import "C"
 
