@@ -20,9 +20,20 @@ type User struct {
 	Email    string `json:"email"`
 }
 
-var emails string = os.Getenv("EMAILS")
+func CheckAuthHandler(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("auth_user_session")
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Return the username so the frontend can say "Welcome, szinn!"
+	json.NewEncoder(w).Encode(map[string]string{"username": cookie.Value})
+}
 
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
+	emails := os.Getenv("EMAILS")
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return

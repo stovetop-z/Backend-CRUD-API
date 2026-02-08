@@ -26,7 +26,8 @@ func main() {
 		fmt.Fprintf(w, "Pong! bunchazinns.org is live.")
 	})
 
-	fileServer := http.FileServer(http.Dir("./uploads"))
+	// Replace "./uploads" with the base directory where your 'root' folder lives
+	fileServer := http.FileServer(http.Dir("./root"))
 	http.Handle("/media/", http.StripPrefix("/media/", fileServer))
 
 	// Start the Server
@@ -46,14 +47,10 @@ func main() {
 	// Handle logout
 	http.HandleFunc("/logout", LogoutHandler)
 
-	// Handle upload
-	http.HandleFunc("/upload", UploadHandler)
-
-	// Handle deletion
-	http.HandleFunc("/delete", DeleteHandler)
-
-	// Get photos
-	http.HandleFunc("/photos", GetPhotosHandler)
+	// Protected routes
+	http.HandleFunc("/upload", AuthMiddleware(UploadHandler))
+	http.HandleFunc("/delete", AuthMiddleware(DeleteHandler))
+	http.HandleFunc("/photos", AuthMiddleware(GetPhotosHandler))
 
 	// This line "blocks" and keeps the program running
 	log.Fatal(http.ListenAndServe(":"+port, nil))
