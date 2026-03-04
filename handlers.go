@@ -10,20 +10,21 @@ char* getMetaData(const char* path);
 import "C"
 
 import (
-	// "context"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 
-	// "log"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 	"unsafe"
-	// "google.golang.org/genai"
+
+	"google.golang.org/genai"
 )
 
 // Get the image datetime function
@@ -135,7 +136,11 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Upload to google gemini to create keywords
 	ctx := context.Background()
-	client, err := genai.NewClient(ctx, nil)
+	apiKey := os.Getenv("API_KEY")
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  apiKey,
+		Backend: genai.BackendGeminiAPI,
+	})
 	if err != nil {
 		log.Println(err)
 	}
@@ -145,26 +150,23 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 
-		prompt := "This prompt is for an api. Create 10 relevant keywords for this image separated only by commas by looking at what is in the image (people, objects, location, etc). Do not respond with any other words except for the keywords separated by commas. Here is an example output I expect: keyword1, keyword2, ... keyword10"
-		parts := []*genai.Part{
-			{Text: prompt},
-			{
-				InlineData: &genai.Blob{
-					MIMEType: "image/" + ext,
-					Data:     imageBytes,
-				},
-			},
-		}
+	prompt := "This prompt is for an api. Create 10 relevant keywords for this image separated only by commas by looking at what is in the image (people, objects, location, etc). Do not respond with any other words except for the keywords separated by commas. Here is an example output I expect: keyword1, keyword2, ... keyword10"
 
-		result, err := client.Models.GenerateContext(ctx, "gemini-2.0-flash", []*genai.Content{
-			{Parts: parts},
-		}, nil)
+	mimeType := "image/" + ext
+	parts := []*genai.Part{
+		{Text: prompt},
+		{InlineData: &genai.Blob{Data: imageBytes, MIMEType: mimeType}},
+	}
 
-		if err != nil {
-			log.Println(err)
-		}
+	result, err := client.Models.GenerateContent(ctx, "gemini-2.5-flash", []*genai.Content{{Parts: parts}}, nil)
 
-		keywords := result
+	if err != nil {
+		log.Println("Gemini error:", err)
+	}
+
+	keywords := result.Candidates[0].Content.Parts[0].Text
+	if err != nil {
+		log.Println("Error getting the text")
 	}
 
 	// Metadata Extraction
@@ -189,6 +191,15 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		os.Remove(fullPath) // Cleanup file if DB fails
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
+	}
+
+	var photo_id int
+	if err := DB.QueryRow("SELECT id FROM photo WHERE name = ?", name).Scan(&photo_id); err != nil {
+		log.Println("Failed to acquire photo_id with name")
+	}
+
+	if err := KeywordsHandler(keywords, photo_id); err != nil {
+		log.Println(err)
 	}
 
 	w.WriteHeader(http.StatusCreated)
@@ -292,18 +303,27 @@ func GetPhotosHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(photos)
 }
 
-func KeywordsHandler(keywords string, user_id int, photo_id int) error {
+func KeywordsHandler(keywords string, photo_id int) error {
 	kw := strings.Split(keywords, ", ")
 
-	query := "INSERT INTO keyword (word) WHERE NOT EXISTS(SELECT 1 FROM keyword WHERE word = ?)"
+	// Insert keywords (ignoring duplicates)
+	// Using "OR IGNORE" for SQLite or "ON CONFLICT DO NOTHING" for Postgres
+	insQuery := "INSERT IGNORE INTO keyword (word) VALUES (?)"
 	for _, k := range kw {
-		if _, err := DB.Exec(query, k); err != nil {
-			log.Println("Couldn't insert keyword: ", k)
+		if _, err := DB.Exec(insQuery, k); err != nil {
+			log.Printf("Couldn't insert keyword %s: %v", k, err)
 		}
 	}
 
-	queryKeywords := "INSERT INTO photo_keyword (photo_id, keyword_id) WHERE keyword_idSELECT keyword_id FROM keyword WHERE word = ?"
-	for _, k
+	// Get the IDs and Link to Photo
+	// We can combine these to avoid extra loops
+	linkQuery := "INSERT INTO photo_keyword (photo_id, keyword_id) VALUES (?, (SELECT id FROM keyword WHERE word = ?))"
+	for _, k := range kw {
+		if _, err := DB.Exec(linkQuery, photo_id, k); err != nil {
+			// Check if link already exists to avoid errors on re-tagging
+			log.Printf("Link already exists or error for %s: %v", k, err)
+		}
+	}
 
-	query := "INSERT INTO photo_keyword (photo_id, keyword_id) WHERE EXISTS "
+	return nil
 }

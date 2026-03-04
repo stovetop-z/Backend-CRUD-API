@@ -18,7 +18,7 @@ build-go:
 	CGO_ENABLED=1 \
 	CGO_CXXFLAGS="$(CXXFLAGS)" \
 	CGO_LDFLAGS="$(LDFLAGS)" \
-	go build -o metadata_tool .
+	go1.24.0 build -o metadata_tool .
 
 clean:
 	rm -f *.o metadata_tool
