@@ -327,3 +327,42 @@ func KeywordsHandler(keywords string, photo_id int) error {
 
 	return nil
 }
+
+func SearchPhotosHandler(w http.ResponseWriter, r *http.Request) {
+	queryParam := r.URL.Query().Get("q")
+	if queryParam == "" {
+		GetPhotosHandler(w, r) // Fallback to all photos if search is empty
+		return
+	}
+
+	cookie, _ := r.Cookie("auth_user_session")
+	userID := QueryID(cookie.Value)
+
+	// JOIN query to find photos linked to specific keywords
+	rows, err := DB.Query(`
+        SELECT DISTINCT p.id, p.name, p.path, p.date, p.time 
+        FROM photo p
+        JOIN photo_keyword pk ON p.id = pk.photo_id
+        JOIN keyword k ON pk.keyword_id = k.id
+        WHERE p.user_id = ? AND k.word LIKE ?`,
+		userID, "%"+queryParam+"%")
+
+	if err != nil {
+		http.Error(w, "Search error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var photos []photoResponse
+	for rows.Next() {
+		var p photoResponse
+		if err := rows.Scan(&p.ID, &p.Name, &p.Path, &p.Date, &p.Time); err != nil {
+			continue
+		}
+		p.Path = "/media/" + strings.Split(p.Path, "/root/")[1]
+		photos = append(photos, p)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(photos)
+}

@@ -10,6 +10,24 @@ import (
 	"github.com/joho/godotenv"
 )
 
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Replace with your specific frontend URL for production
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight 'OPTIONS' requests
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	// Load the .env file
 	err := godotenv.Load()
@@ -21,14 +39,28 @@ func main() {
 	err, msg := InitDB()
 	fmt.Println(msg)
 
-	// A simple health check
-	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+	// Server mux
+	mux := http.NewServeMux()
+
+	// health check
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Pong! bunchazinns.org is live.")
 	})
 
-	// Replace "./uploads" with the base directory where your 'root' folder lives
+	mux.HandleFunc("/signup", SignupHandler)
+	mux.HandleFunc("/login", LoginHandler)
+	mux.HandleFunc("/logout", LogoutHandler)
+
+	// Protected Routes (using your AuthMiddleware)
+	mux.HandleFunc("/check-auth", AuthMiddleware(CheckAuthHandler))
+	mux.HandleFunc("/upload", AuthMiddleware(UploadHandler))
+	mux.HandleFunc("/delete", AuthMiddleware(DeleteHandler))
+	mux.HandleFunc("/photos", AuthMiddleware(GetPhotosHandler))
+	mux.HandleFunc("/search", AuthMiddleware(SearchPhotosHandler))
+
+	// Static Media Serving
 	fileServer := http.FileServer(http.Dir("./root"))
-	http.Handle("/media/", http.StripPrefix("/media/", fileServer))
+	mux.Handle("/media/", http.StripPrefix("/media/", fileServer))
 
 	// Start the Server
 	port := os.Getenv("PORT")
@@ -38,20 +70,5 @@ func main() {
 
 	fmt.Printf("Server starting on port %s...\n", port)
 
-	// Access signup
-	http.HandleFunc("/signup", SignupHandler)
-
-	// Access login
-	http.HandleFunc("/login", LoginHandler)
-
-	// Handle logout
-	http.HandleFunc("/logout", LogoutHandler)
-
-	// Protected routes
-	http.HandleFunc("/upload", AuthMiddleware(UploadHandler))
-	http.HandleFunc("/delete", AuthMiddleware(DeleteHandler))
-	http.HandleFunc("/photos", AuthMiddleware(GetPhotosHandler))
-
-	// This line "blocks" and keeps the program running
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe(":"+port, CORSMiddleware(mux)))
 }
