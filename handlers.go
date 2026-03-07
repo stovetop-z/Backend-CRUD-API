@@ -171,16 +171,20 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Metadata Extraction
 	dt := GetImageDateTime(fullPath)
-	fmt.Println("Date Time extraction: ", dt)
-	dateStr := time.Now().Format("2006-01-02")
-	timeStr := time.Now().Format("15:04:05")
+	fmt.Println("Date Time extraction:", dt)
 
+	var dateStr, timeStr string
+
+	// If we have a valid EXIF string (expected format "YYYY:MM:DD HH:MM:SS")
 	if dt != "" && strings.Contains(dt, " ") {
-		parts := strings.Split(dt, " ")
-		if len(parts) >= 2 {
-			dateStr = strings.Replace(parts[0], ":", "-", 2)
-			timeStr = parts[1]
-		}
+		parts := strings.SplitN(dt, " ", 2)
+		dateStr = strings.ReplaceAll(parts[0], ":", "-")
+		timeStr = parts[1]
+	} else {
+		// Fallback to current system time if metadata is missing or malformed
+		now := time.Now()
+		dateStr = now.Format("2006-01-02")
+		timeStr = now.Format("15:04:05")
 	}
 
 	// DB Entry
@@ -295,7 +299,12 @@ func GetPhotosHandler(w http.ResponseWriter, r *http.Request) {
 		if err := rows.Scan(&p.ID, &p.Name, &p.Path, &p.Date, &p.Time); err != nil {
 			continue
 		}
-		p.Path = "/media/" + strings.Split(p.Path, "/root/")[1]
+
+		// Transform absolute path to web-accessible path
+		if strings.Contains(p.Path, "root/") {
+			p.Path = "/media/" + p.Path[strings.Index(p.Path, "root/")+5:]
+		}
+
 		photos = append(photos, p)
 	}
 

@@ -59,7 +59,13 @@ func main() {
 	mux.HandleFunc("/search", AuthMiddleware(SearchPhotosHandler))
 
 	// Static Media Serving
-	fileServer := http.FileServer(http.Dir("./root"))
+	mediaPath := os.Getenv("MEDIA_PATH")
+
+	fmt.Println("Check: Looking for images in:", mediaPath)
+
+	fileServer := http.FileServer(http.Dir(mediaPath))
+
+	// This maps http://localhost:8080/media/ to that folder
 	mux.Handle("/media/", http.StripPrefix("/media/", fileServer))
 
 	// Start the Server
